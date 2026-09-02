@@ -20,14 +20,13 @@ function decode_varint(string $bytes, $i, $field)
 {
 	$value = 0;
 	$bi = 0;
-	while(true)
+	$cont = true;
+	while($cont)
 	{
 		$b = ord($bytes[$i]);
 		$cont = ($b & 0x80) > 0;
 		$value += ($b & 0x7f) << (7 * $bi);
 		$i++;
-		if(!$cont)
-			break;
 		$bi++;
 	}
 

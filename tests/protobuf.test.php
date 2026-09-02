@@ -79,14 +79,20 @@ test("A message with a repeated packed int32 field, decode LEN wiretype and its 
 	message Test4 {
 		string d = 4;
 		repeated int32 e = 5 [packed = true];
+		int64 f = 6 [default = 67];
 	}
 	*/
 	$test4msg = new ProtoBufMessage('Test4');
 	$test4msg->define_field('d', 'string', 4);
 	$test4msg->define_repeated_field('e', 'int32', 5, true);
+	// This field will be missing a value, thus will get the default
+	$test4msg->define_field('f', 'int64', 6, 67);
 	$test4 = $test4msg->decode($bytes);
 	
 	expect($test4['@type'])->toBe("Test4");
 	expect($test4['d'])->toBe("hello");
 	expect($test4['e'])->toBe([1, 2, 3]);
+	// Make sure default is set for the missing field
+	expect($test4['f'])->toBe(67);
+	
 });
