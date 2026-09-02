@@ -42,8 +42,40 @@ class ProtoBufMessage
 		$this->messages[$name] = $message;
 	}
 	
-	public function define_field($name, $type, $fieldnum, $default = 0, $optional = true)
+	public function define_field($name, $type, $fieldnum, $default = '', $optional = true)
 	{
+		if($type == "bool")
+		{
+			$default = ($default == 1 || $default == true) ? true : false;
+		}
+		if($type == "int32" || $type == "int64" || $type == "uint32" || $type == "uint64" || $type == "sint32" || $type == "sint64" || 
+			$type == "fixed32" || $type == "fixed64" || $type == "sfixed32" || $type == "sfixed64")
+		{
+			$default = intval($default);
+		}
+		elseif($type == "float" || $type == "double")
+		{
+			$default = floatval($default);
+		}
+		elseif($type == "string")
+		{
+			$default = strval($default);
+		}
+		elseif($type == "bytes")
+		{
+			$default = null;
+		}
+		elseif($this->messages[$type])
+		{
+			// Sub messages default to null
+			$default = null;
+		}
+		elseif($this->enums[$type])
+		{
+			// Enums are ints
+			$default = intval($default);
+		}
+
 		$this->fields[$fieldnum] = ['repeated' => false, 'name' => $name, 'type' => $type, 'default' => $default, 'optional' => $optional];
 		$this->parsed[$fieldnum] = ['value' => $default];
 	}
@@ -53,7 +85,7 @@ class ProtoBufMessage
 		$this->parsed[$fieldnum] = ['value' => []];
 	}
 
-	private function process_value($value, $fieldtype)
+	private function post_process_value($value, $fieldtype)
 	{
 		// Special cases for enum and sub message types
 		if(isset($this->enums[$fieldtype]))
@@ -72,14 +104,14 @@ class ProtoBufMessage
 		return $value;
 	}
 	
-	public function decode($bytes)
+	public function decode(string $bytes)
 	{
 		// Parse key-value pairs
 		$i = 0;
-		$n = count($bytes);
+		$n = \strlen($bytes);
 		while ($i < $n)
 		{
-			list($wiretype, $fieldnum, $i) = parse_tag($bytes, $i);
+			list($wiretype, $fieldnum, $i) = decode_tag($bytes, $i);
 			$field = $this->fields[$fieldnum];
 			$fieldtype = $field['type'];
 
@@ -93,7 +125,7 @@ class ProtoBufMessage
 				$field['submessage'] = true;
 			}
 
-			list($value, $i) = parse_value($bytes, $i, $wiretype, $field);
+			list($value, $i) = decode_value($bytes, $i, $wiretype, $field);
 
 			if($field['repeated'])
 			{
@@ -102,17 +134,17 @@ class ProtoBufMessage
 				{
 					foreach($value as $val)
 					{
-						$this->parsed[$fieldnum]['value'][] = $this->process_value($val, $fieldtype);
+						$this->parsed[$fieldnum]['value'][] = $this->post_process_value($val, $fieldtype);
 					}
 				}
 				else
 				{
-					$this->parsed[$fieldnum]['value'][] = $this->process_value($value, $fieldtype);
+					$this->parsed[$fieldnum]['value'][] = $this->post_process_value($value, $fieldtype);
 				}
 			} 
 			else
 			{
-				$this->parsed[$fieldnum]['value'] = $this->process_value($value, $fieldtype);
+				$this->parsed[$fieldnum]['value'] = $this->post_process_value($value, $fieldtype);
 			}
 			$this->parsed[$fieldnum]['wiretype'] = $wiretype;
 			

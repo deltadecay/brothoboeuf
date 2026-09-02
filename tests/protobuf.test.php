@@ -16,7 +16,9 @@ use brothoboeuf\ProtoBufMessage;
 
 test("A message with two fields, int32 and string, decode VARINT and LEN wiretypes", function() {
 
-	$bytes = [/* id */ 0x08, 0x96, 0x01, /* name */  0x12, 0x07, 0x74, 0x65, 0x73, 0x74, 0x69, 0x6e, 0x67];
+	//$bytes = "\x08\x96\x01\x12\x07\x74\x65\x73\x74\x69\x6e\x67";
+	//$bytes = "\x08\x96\x01\x12\x07testing";
+	$bytes = pack("C*", ...[/* id */ 0x08, 0x96, 0x01, /* name */  0x12, 0x07, 0x74, 0x65, 0x73, 0x74, 0x69, 0x6e, 0x67]);
 	// Create the following protobuf message
 	/* 
 	message Test1 {
@@ -38,7 +40,8 @@ test("A message with two fields, int32 and string, decode VARINT and LEN wiretyp
 
 test("A message with a sub message, decode LEN wiretype and its payload as a submessage", function() {
 
-	$bytes = [0x1a, 0x0c, 0x08, 0x96, 0x01, 0x12, 0x07, 0x74, 0x65, 0x73, 0x74, 0x69, 0x6e, 0x67];
+	//$bytes = "\x1a\x0c\x08\x96\x01\x12\x07\x74\x65\x73\x74\x69\x6e\x67";
+	$bytes = pack("C*", ...[0x1a, 0x0c, 0x08, 0x96, 0x01, 0x12, 0x07, 0x74, 0x65, 0x73, 0x74, 0x69, 0x6e, 0x67]);
 	// Create the following protobuf message
 	// Test1 is a submessage of Test2
 	/*
@@ -68,7 +71,8 @@ test("A message with a sub message, decode LEN wiretype and its payload as a sub
 
 
 test("A message with a repeated packed int32 field, decode LEN wiretype and its payload as a sequence of int32", function() {
-	$bytes = [0x22, 0x05, 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x2a, 0x03, 0x01, 0x02, 0x03];
+	//$bytes = "\x22\x05\x68\x65\x6c\x6c\x6f\x2a\x03\x01\x02\x03";
+	$bytes = pack("C*", ...[0x22, 0x05, 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x2a, 0x03, 0x01, 0x02, 0x03]);
 	// Create the following protobuf message with a repeated field, and since it is a primitive scalar, it is by default packed,
 	// but explicitly specified here in the definition.
 	/*
