@@ -59,21 +59,17 @@ function decode_i64($bytes, $offset, $field)
 {
 	$value = 0;
 	$fieldtype = $field['type'];
-	if($fieldtype == "fixed64")
+	if($fieldtype == "fixed64" || $fieldtype == "sfixed64")
 	{
 		if(PHP_VERSION_ID >= 70100)
 			$i64 = unpack("P", $bytes, $offset);
 		else
 			$i64 = unpack("P", substr($bytes, $offset, 8));
+
 		$value = intval($i64[1]);
-	}
-	elseif($fieldtype == "sfixed64")
-	{
-		if(PHP_VERSION_ID >= 70100)
-			$i64 = unpack("P", $bytes, $offset);
-		else
-			$i64 = unpack("P", substr($bytes, $offset, 8));
-		$value = zigzag_decode(intval($i64[1]));
+		
+		if($fieldtype == "sfixed64")
+			$value = zigzag_decode($value);
 	}
 	elseif($fieldtype == "double")
 	{
@@ -97,21 +93,17 @@ function decode_i32($bytes, $offset, $field)
 {
 	$value = 0;
 	$fieldtype = $field['type'];
-	if($fieldtype == "fixed32")
+	if($fieldtype == "fixed32" || $fieldtype == "sfixed32")
 	{
 		if(PHP_VERSION_ID >= 70100)
 			$i32 = unpack("V", $bytes, $offset);
 		else
 			$i32 = unpack("V", substr($bytes, $offset, 4));
-		$value = intval($i32[1]);		
-	}
-	elseif($fieldtype == "sfixed32")
-	{
-		if(PHP_VERSION_ID >= 70100)
-			$i32 = unpack("V", $bytes, $offset);
-		else
-			$i32 = unpack("V", substr($bytes, $offset, 4));
-		$value = zigzag_decode(intval($i32[1]));
+
+		$value = intval($i32[1]);	
+	
+		if($fieldtype == "sfixed32")
+			$value = zigzag_decode($value);
 	}
 	elseif($fieldtype == "float")
 	{

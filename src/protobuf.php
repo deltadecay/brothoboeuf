@@ -106,6 +106,14 @@ class ProtoBufMessage
 	
 	public function decode($bytes)
 	{
+		if(is_array($bytes))
+		{
+			$bytes = pack("C*", ...$bytes);
+		}
+		if(!is_string($bytes))
+		{
+			throw new \Exception("parameter bytes must be a binary string or an array of bytes");
+		}
 		// Parse key-value pairs
 		$i = 0;
 		$n = \strlen($bytes);

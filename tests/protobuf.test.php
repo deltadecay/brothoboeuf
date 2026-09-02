@@ -119,13 +119,9 @@ test("A message with a string, an int32 and a float", function() {
 	$personmsg->define_field('height', 'float', 3);
 
 	$person = $personmsg->decode($bytes);
-	//print_r($person);
 
 	expect($person['@type'])->toBe("Person");
 	expect($person['name'])->toBe("Phuong Le");
 	expect($person['id'])->toBe(300);
 	expect($person['height'])->toBeCloseTo(1.75, 2);
-
-	// print_r(bin2hex(pack("f", 1.75))); // machine
-	//var_dump(\brothoboeuf\decode_i32("\x3f\xe0\x00\x00", 0, ['type' => 'float']));
 });
