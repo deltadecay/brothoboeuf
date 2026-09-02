@@ -104,7 +104,7 @@ class ProtoBufMessage
 		return $value;
 	}
 	
-	public function decode(string $bytes)
+	public function decode($bytes)
 	{
 		// Parse key-value pairs
 		$i = 0;

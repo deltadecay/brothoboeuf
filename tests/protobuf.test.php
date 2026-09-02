@@ -17,7 +17,7 @@ use brothoboeuf\ProtoBufMessage;
 test("A message with two fields, int32 and string, decode VARINT and LEN wiretypes", function() {
 
 	//$bytes = "\x08\x96\x01\x12\x07\x74\x65\x73\x74\x69\x6e\x67";
-	//$bytes = "\x08\x96\x01\x12\x07testing";
+	//$bytes = b"\x08\x96\x01\x12\x07testing";
 	$bytes = pack("C*", ...[/* id */ 0x08, 0x96, 0x01, /* name */  0x12, 0x07, 0x74, 0x65, 0x73, 0x74, 0x69, 0x6e, 0x67]);
 	// Create the following protobuf message
 	/* 
@@ -71,8 +71,8 @@ test("A message with a sub message, decode LEN wiretype and its payload as a sub
 
 
 test("A message with a repeated packed int32 field, a missing with default and a float, decode LEN for array and I32 for float", function() {
-	//$bytes = "\x22\x05\x68\x65\x6c\x6c\x6f\x2a\x03\x01\x02\x03\x3d\x3f\x9e\x04\x19";
-	$bytes = pack("C*", ...[0x22, 0x05, 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x2a, 0x03, 0x01, 0x02, 0x03, 0x3d, 0x3f, 0x9e, 0x04, 0x19]);
+	//$bytes = "\x22\x05\x68\x65\x6c\x6c\x6f\x2a\x03\x01\x02\x03\x3d\x19\x04\x9e\x3f";
+	$bytes = pack("C*", ...[0x22, 0x05, 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x2a, 0x03, 0x01, 0x02, 0x03, 0x3d, 0x19, 0x04, 0x9e, 0x3f]);
 	// Create the following protobuf message with a repeated field, and since it is a primitive scalar, it is by default packed,
 	// but explicitly specified here in the definition.
 	/*
@@ -98,4 +98,34 @@ test("A message with a repeated packed int32 field, a missing with default and a
 	expect($test4['f'])->toBe(67);
 	expect($test4['g'])->toBeCloseTo(1.2345, 5);
 	
+});
+
+
+
+test("A message with a string, an int32 and a float", function() {
+
+	$bytes = pack("C*", ...[10, 9, 80, 104, 117, 111, 110, 103, 32, 76, 101, 16, 172, 2, 29, 0, 0, 224, 63]);
+
+	/*
+	message Person {
+		string name = 1;
+		int32  id = 2;
+		float  height = 3; // in meters
+	}
+	*/
+	$personmsg = new ProtoBufMessage('Person');
+	$personmsg->define_field('name', 'string', 1);
+	$personmsg->define_field('id', 'int32', 2);
+	$personmsg->define_field('height', 'float', 3);
+
+	$person = $personmsg->decode($bytes);
+	//print_r($person);
+
+	expect($person['@type'])->toBe("Person");
+	expect($person['name'])->toBe("Phuong Le");
+	expect($person['id'])->toBe(300);
+	expect($person['height'])->toBeCloseTo(1.75, 2);
+
+	// print_r(bin2hex(pack("f", 1.75))); // machine
+	//var_dump(\brothoboeuf\decode_i32("\x3f\xe0\x00\x00", 0, ['type' => 'float']));
 });

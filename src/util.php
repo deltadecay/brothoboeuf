@@ -2,7 +2,14 @@
 
 namespace brothoboeuf;
 
-function decode_tag(string $bytes, $offset)
+function is_little_endian() 
+{
+	$testint = 0x00FF;
+	$p = pack('S', $testint);
+	return $testint === unpack('v', $p)[1];
+}
+
+function decode_tag($bytes, $offset)
 {
 	$b = ord($bytes[$offset]);
 	$wiretype = $b & 0x07;
@@ -16,7 +23,7 @@ function zigzag_decode($value)
 	return ($value >> 1) ^ (-($value & 1));
 }
 
-function decode_varint(string $bytes, $offset, $field)
+function decode_varint($bytes, $offset, $field)
 {
 	$value = 0;
 	$bi = 0;
@@ -48,51 +55,82 @@ function decode_varint(string $bytes, $offset, $field)
 	return [$value, $offset];
 }
 
-function decode_i64(string $bytes, $offset, $field)
+function decode_i64($bytes, $offset, $field)
 {
 	$value = 0;
 	$fieldtype = $field['type'];
 	if($fieldtype == "fixed64")
 	{
-		$i64 = unpack("J", $bytes, $offset);
+		if(PHP_VERSION_ID >= 70100)
+			$i64 = unpack("P", $bytes, $offset);
+		else
+			$i64 = unpack("P", substr($bytes, $offset, 8));
 		$value = intval($i64[1]);
 	}
 	elseif($fieldtype == "sfixed64")
 	{
-		$i64 = unpack("J", $bytes, $offset);
+		if(PHP_VERSION_ID >= 70100)
+			$i64 = unpack("P", $bytes, $offset);
+		else
+			$i64 = unpack("P", substr($bytes, $offset, 8));
 		$value = zigzag_decode(intval($i64[1]));
 	}
 	elseif($fieldtype == "double")
 	{
-		$float64 = unpack("E", $bytes, $offset);
+		if(PHP_VERSION_ID >= 70100)
+			$float64 = unpack("e", $bytes, $offset);
+		else
+		{	
+			if(is_little_endian())
+				$float64 = unpack("d", substr($bytes, $offset, 8));
+			else
+				// unpack("d") is machine dependant, strrev since data is little endian and machine big endian
+				$float64 = unpack("d", strrev(substr($bytes, $offset, 8)));
+		} 
+			
 		$value = floatval($float64[1]);
 	}
 	return [$value, $offset + 8];
 }
 
-function decode_i32(string $bytes, $offset, $field)
+function decode_i32($bytes, $offset, $field)
 {
 	$value = 0;
 	$fieldtype = $field['type'];
 	if($fieldtype == "fixed32")
 	{
-		$i32 = unpack("N", $bytes, $offset);
+		if(PHP_VERSION_ID >= 70100)
+			$i32 = unpack("V", $bytes, $offset);
+		else
+			$i32 = unpack("V", substr($bytes, $offset, 4));
 		$value = intval($i32[1]);		
 	}
 	elseif($fieldtype == "sfixed32")
 	{
-		$i32 = unpack("N", $bytes, $offset);
+		if(PHP_VERSION_ID >= 70100)
+			$i32 = unpack("V", $bytes, $offset);
+		else
+			$i32 = unpack("V", substr($bytes, $offset, 4));
 		$value = zigzag_decode(intval($i32[1]));
 	}
 	elseif($fieldtype == "float")
 	{
-		$float32 = unpack("G", $bytes, $offset);
+		if(PHP_VERSION_ID >= 70100)
+			$float32 = unpack("g", $bytes, $offset);
+		else
+		{	
+			if(is_little_endian())
+				$float32 = unpack("f", substr($bytes, $offset, 4));
+			else 
+				// unpack("f") is machine dependant, strrev since data is little endian and machine big endian
+				$float32 = unpack("f", strrev(substr($bytes, $offset, 4)));
+		} 
 		$value = floatval($float32[1]);
 	}
 	return [$value, $offset + 4];
 }
 
-function decode_len(string $bytes, $offset, $field)
+function decode_len($bytes, $offset, $field)
 {
 	list($len, $offset) = decode_varint($bytes, $offset, ['type' => "int32"]);
 	$value = substr($bytes, $offset, $len);
@@ -161,7 +199,7 @@ function decode_len(string $bytes, $offset, $field)
 	return [$value, $offset];
 }
 	
-function decode_value(string $bytes, $offset, $wiretype, $field)
+function decode_value($bytes, $offset, $wiretype, $field)
 {
 	$value = null;
 	switch($wiretype) 
