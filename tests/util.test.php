@@ -84,7 +84,6 @@ test("decode_varint()", function() {
 	expect($value)->toBeEqual(true); 
 	expect($offset)->toBe(1); 
 
-	// 
 	list($value, $offset) = decode_varint("\x01", 0, ['type' => 'int32']);
 	expect($value)->toBeEqual(1); 
 	expect($offset)->toBe(1); 
@@ -126,15 +125,51 @@ test("decode_i32()", function() {
 });
 
 test("decode_i64()", function() {
+	// echo bin2hex(pack("e", 3.453424e123))
+	list($value, $offset) = decode_i64("\xfb\x47\x10\x12\x7b\xe5\x94\x59", 0, ['type' => 'double']);
+	expect($value)->toBeCloseTo(3.453424e123, -117); 
+	expect($offset)->toBe(8); 
 
+	// echo bin2hex(pack("P", 62678480394977005))
+	list($value, $offset) = decode_i64("\xed\xfe\x00\xef\xbe\xad\xde\x00", 0, ['type' => 'fixed64']);
+	expect($value)->toBeEqual(0x00deadbeef00feed); 
+	expect($offset)->toBe(8); 
+
+	// echo bin2hex(pack("P", 3))
+	list($value, $offset) = decode_i64("\x03\x00\x00\x00\x00\x00\x00\x00", 0, ['type' => 'fixed64']);
+	expect($value)->toBe(3); 
+	expect($offset)->toBe(8); 
+
+	// if encoding negative numbers with I64 then sfixed64 must be used. fixed64 cannot properly decode negative.
+	// echo bin2hex(pack("P", zigzag_encode_sint64(-2))) 
+	list($value, $offset) = decode_i64("\x03\x00\x00\x00\x00\x00\x00\x00", 0, ['type' => 'sfixed64']);
+	expect($value)->toBe(-2); 
+	expect($offset)->toBe(8); 
 });
 
 test("decode_len()", function() {
-
 	// First byte 0x0b is varint encoding of the length of the payload, in this case a string "hello world" 
 	list($value, $offset) = decode_len("\x0b\x68\x65\x6c\x6c\x6f\x20\x77\x6f\x72\x6c\x64", 0, ['type' => 'string']);
 	expect($value)->toBe("hello world"); 
 	expect($offset)->toBe(12); 
+
+	// type=bytes extract and returns the bytes as is as a binary string
+	list($value, $offset) = decode_len("\x04\x01\x02\x03\x04", 0, ['type' => 'bytes']);
+	expect($value)->toBe(pack("C*", 1,2,3,4));
+	// unpack to a byte array
+	$byte_arr = array_values(unpack("C*", $value));
+	expect($byte_arr)->toBe([1, 2, 3, 4]); 
+	expect($offset)->toBe(5); 
+
+	// Payload 5 bytes, but 4 values each varint encoded, and type int32 repeated packed returns the array of ints 
+	list($value, $offset) = decode_len("\x05\x01\x02\x96\x01\x03", 0, ['repeated' => true, 'type' => 'int32', 'packed' => true]);
+	expect($value)->toBe([1, 2, 150, 3]); 
+	expect($offset)->toBe(6); 
+
+	// Payload 12 bytes, type repeated float of 3 values, each 4 bytes as I32 packed.
+	list($value, $offset) = decode_len("\x0c\x00\x00\x00\x3f\x00\x00\x80\x3e\x00\x00\x00\x3e", 0, ['repeated' => true, 'type' => 'float', 'packed' => true]);
+	expect($value)->toBe([0.5, 0.25, 0.125]); 
+	expect($offset)->toBe(13); 
 });
 
 test("decode_value()", function() {
