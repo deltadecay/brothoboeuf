@@ -9,20 +9,22 @@ function is_little_endian()
 	return $testint === unpack('v', $p)[1];
 }
 
-function decode_tag($bytes, $offset)
+function zigzag_encode_sint32($value)
 {
-	$b = ord($bytes[$offset]);
-	$wiretype = $b & 0x07;
-	$fieldnum = $b >> 3;
-	return [$wiretype, $fieldnum, $offset + 1];
+	return ($value << 1) ^ ($value >> 31);
 }
-
+function zigzag_encode_sint64($value)
+{
+	return ($value << 1) ^ ($value >> 63);
+}
 
 function zigzag_decode($value)
 {
 	return ($value >> 1) ^ (-($value & 1));
 }
 
+// Variable width integers, base 128 varints, encodes 64-bit integers between one to ten bytes,
+// where smaller numbers use less bytes.
 function decode_varint($bytes, $offset, $field)
 {
 	$value = 0;
@@ -37,7 +39,7 @@ function decode_varint($bytes, $offset, $field)
 		$bi++;
 	}
 
-	$fieldtype = $field['type'];
+	$fieldtype = isset($field['type']) ? $field['type'] : "int64";
 	//$is_enum = isset($field['enum']) && $field['enum'];
 	// int32, int64, uint32, uint64, sint32, sint64 treated as int and also enums since php doesn't have enum
 	$value = intval($value);
@@ -95,15 +97,27 @@ function decode_i32($bytes, $offset, $field)
 	$fieldtype = $field['type'];
 	if($fieldtype == "fixed32" || $fieldtype == "sfixed32")
 	{
+		// note that fixed32 should not be used for negative numbers 
 		if(PHP_VERSION_ID >= 70100)
 			$i32 = unpack("V", $bytes, $offset);
 		else
 			$i32 = unpack("V", substr($bytes, $offset, 4));
+		
+		/*
+		$bytes4 = substr($bytes, $offset, 4);
+		if(!is_little_endian())
+			$bytes4 = strrev($bytes4);
 
+		$i32 = unpack("l", $bytes4);
+		*/
+		
 		$value = intval($i32[1]);	
 	
 		if($fieldtype == "sfixed32")
-			$value = zigzag_decode($value);
+		{
+			$value = (int)zigzag_decode($value);
+			
+		}
 	}
 	elseif($fieldtype == "float")
 	{
@@ -189,6 +203,19 @@ function decode_len($bytes, $offset, $field)
 	// sub message types are handled in a special case, those bytes will be parsed there
 	
 	return [$value, $offset];
+}
+
+// 
+// A tag is a varint that encodes the low 3 bits for the wire type and the upper bits for the field number:
+// (field_number << 3) | wire_type
+function decode_tag($bytes, $offset)
+{
+	//$tag = ord($bytes[$offset]);
+	//$offset++;
+	list($tag, $offset) = decode_varint($bytes, $offset, ['type' => 'uint64']);
+	$wiretype = $tag & 0x07;
+	$fieldnum = $tag >> 3;
+	return [$wiretype, $fieldnum, $offset];
 }
 	
 function decode_value($bytes, $offset, $wiretype, $field)
