@@ -42,47 +42,50 @@ class ProtoBufMessage
 		$this->messages[$name] = $message;
 	}
 	
-	public function define_field($name, $type, $fieldnum, $default = '', $optional = true)
+	public function define_field($name, $type, $fieldnum, $default = null, $optional = true)
 	{
-		if($type == "bool")
+		if ($default !== null)
 		{
-			$default = ($default == 1 || $default == true) ? true : false;
-		}
-		if($type == "int32" || $type == "int64" || $type == "uint32" || $type == "uint64" || $type == "sint32" || $type == "sint64" || 
-			$type == "fixed32" || $type == "fixed64" || $type == "sfixed32" || $type == "sfixed64")
-		{
-			$default = intval($default);
-		}
-		elseif($type == "float" || $type == "double")
-		{
-			$default = floatval($default);
-		}
-		elseif($type == "string")
-		{
-			$default = strval($default);
-		}
-		elseif($type == "bytes")
-		{
-			$default = null;
-		}
-		elseif($this->messages[$type])
-		{
-			// Sub messages default to null
-			$default = null;
-		}
-		elseif($this->enums[$type])
-		{
-			// Enums are ints
-			$default = intval($default);
+			if($type == "bool")
+			{
+				$default = ($default == 1 || $default == true) ? true : false;
+			}
+			elseif($type == "int32" || $type == "int64" || $type == "uint32" || $type == "uint64" || $type == "sint32" || $type == "sint64" || 
+				$type == "fixed32" || $type == "fixed64" || $type == "sfixed32" || $type == "sfixed64")
+			{
+				$default = intval($default);
+			}
+			elseif($type == "float" || $type == "double")
+			{
+				$default = floatval($default);
+			}
+			elseif($type == "string")
+			{
+				$default = strval($default);
+			}
+			elseif($type == "bytes")
+			{
+				$default = null;
+			}
+			elseif(isset($this->messages[$type]))
+			{
+				// Sub messages default to null
+				$default = null;
+			}
+			elseif(isset($this->enums[$type]))
+			{
+				// Enums are ints
+				$default = intval($default);
+			}
 		}
 
 		$this->fields[$fieldnum] = ['repeated' => false, 'name' => $name, 'type' => $type, 'default' => $default, 'optional' => $optional];
-		$this->parsed[$fieldnum] = ['value' => $default];
+		//$this->parsed[$fieldnum] = ['value' => $default];
 	}
 	public function define_repeated_field($name, $type, $fieldnum, $packed = true)
 	{
 		$this->fields[$fieldnum] = ['repeated' => true, 'name' => $name, 'type' => $type, 'packed' => $packed];
-		$this->parsed[$fieldnum] = ['value' => []];
+		//$this->parsed[$fieldnum] = ['value' => []];
 	}
 
 	private function post_process_value($value, $fieldtype)
@@ -103,9 +106,27 @@ class ProtoBufMessage
 
 		return $value;
 	}
+
+	public function reset()
+	{
+		// Reset parsed to default values
+		foreach($this->fields as $fieldnum => $field)
+		{
+			if($field['repeated'])
+			{
+				$this->parsed[$fieldnum] = ['value' => []];
+			}
+			else
+			{
+				$this->parsed[$fieldnum] = ['value' => $field['default']];
+			}
+		}
+	}
 	
 	public function decode($bytes)
 	{
+		$this->reset();
+		
 		if(is_array($bytes))
 		{
 			$bytes = pack("C*", ...$bytes);
@@ -114,6 +135,9 @@ class ProtoBufMessage
 		{
 			throw new \Exception("parameter bytes must be a binary string or an array of bytes");
 		}
+
+		$wiretype_names = [0 => "VARINT", 1 => "I64", 2 => "LEN", 3 => "SGROUP", 4 => "EGROUP", 5 => "I32"];
+		
 		// Parse key-value pairs
 		$i = 0;
 		$n = \strlen($bytes);
@@ -135,6 +159,15 @@ class ProtoBufMessage
 
 			list($value, $i) = decode_value($bytes, $i, $wiretype, $field);
 
+			/* 
+			$debug_out = $fieldnum.":".$wiretype_names[$wiretype];
+			if(!isset($this->messages[$fieldtype]))
+			{
+				$debug_out .= " ".var_export($value, true);
+			}
+			echo $debug_out."\n";
+			*/
+			
 			if($field['repeated'])
 			{
 				// For repeated, the values make an array so we append
@@ -142,17 +175,29 @@ class ProtoBufMessage
 				{
 					foreach($value as $val)
 					{
-						$this->parsed[$fieldnum]['value'][] = $this->post_process_value($val, $fieldtype);
+						$val = $this->post_process_value($val, $fieldtype);
+						if($val !== null) 
+						{
+							$this->parsed[$fieldnum]['value'][] = $val;
+						}
 					}
 				}
 				else
 				{
-					$this->parsed[$fieldnum]['value'][] = $this->post_process_value($value, $fieldtype);
+					$val = $this->post_process_value($value, $fieldtype);
+					if($val !== null)
+					{
+						$this->parsed[$fieldnum]['value'][] = $val;						
+					}
 				}
 			} 
 			else
 			{
-				$this->parsed[$fieldnum]['value'] = $this->post_process_value($value, $fieldtype);
+				$val = $this->post_process_value($value, $fieldtype);
+				if($val !== null) 
+				{
+					$this->parsed[$fieldnum]['value'] = $val;					
+				}
 			}
 			$this->parsed[$fieldnum]['wiretype'] = $wiretype;
 			
@@ -164,7 +209,10 @@ class ProtoBufMessage
 		{
 			$field = $this->fields[$fieldnum];
 			$value = $parsedval['value'];
-			$obj[$field['name']] = $value;
+			if($value !== null)
+			{
+				$obj[$field['name']] = $value;				
+			}
 		}
 
 		return $obj;

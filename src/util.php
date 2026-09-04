@@ -59,8 +59,8 @@ function decode_varint($bytes, $offset, $field)
 
 function decode_i64($bytes, $offset, $field)
 {
-	$value = 0;
-	$fieldtype = $field['type'];
+	$value = null;
+	$fieldtype = isset($field['type']) ? $field['type'] : "fixed64";
 	if($fieldtype == "fixed64" || $fieldtype == "sfixed64")
 	{
 		if(PHP_VERSION_ID >= 70100)
@@ -71,7 +71,9 @@ function decode_i64($bytes, $offset, $field)
 		$value = intval($i64[1]);
 		
 		if($fieldtype == "sfixed64")
+		{
 			$value = zigzag_decode($value);
+		}
 	}
 	elseif($fieldtype == "double")
 	{
@@ -93,8 +95,8 @@ function decode_i64($bytes, $offset, $field)
 
 function decode_i32($bytes, $offset, $field)
 {
-	$value = 0;
-	$fieldtype = $field['type'];
+	$value = null;
+	$fieldtype = isset($field['type']) ? $field['type'] : "fixed32";
 	if($fieldtype == "fixed32" || $fieldtype == "sfixed32")
 	{
 		// note that fixed32 should not be used for negative numbers 
@@ -116,7 +118,6 @@ function decode_i32($bytes, $offset, $field)
 		if($fieldtype == "sfixed32")
 		{
 			$value = (int)zigzag_decode($value);
-			
 		}
 	}
 	elseif($fieldtype == "float")
@@ -142,7 +143,7 @@ function decode_len($bytes, $offset, $field)
 	$value = substr($bytes, $offset, $len);
 	$offset += $len;
 
-	$fieldtype = $field['type'];
+	$fieldtype = isset($field['type']) ? $field['type'] : "bytes";
 	$packed = isset($field['packed']) && $field['packed'];
 	if($fieldtype == 'bytes')
 	{
@@ -158,11 +159,11 @@ function decode_len($bytes, $offset, $field)
 	elseif($packed)
 	{
 		$is_enum = isset($field['enum']) && $field['enum'];
-		if(in_array($fieldtype, ["int32", "int64", "uint32", "uint64", "bool", "sint32", "sint64"]) || $is_enum)
+		if(\in_array($fieldtype, ["int32", "int64", "uint32", "uint64", "bool", "sint32", "sint64"]) || $is_enum)
 		{
 			$packed_values = $value; 
 			$unpacked_values = [];
-			$n = strlen($packed_values);
+			$n = \strlen($packed_values);
 			$pi = 0;
 			while($pi < $n)
 			{
@@ -172,11 +173,11 @@ function decode_len($bytes, $offset, $field)
 			$value = $unpacked_values;
 		}
 		// The I32 primitives
-		elseif(in_array($fieldtype, ["fixed32", "sfixed32", "float"]))
+		elseif(\in_array($fieldtype, ["fixed32", "sfixed32", "float"]))
 		{
 			$packed_values = $value; 
 			$unpacked_values = [];
-			$n = strlen($packed_values);
+			$n = \strlen($packed_values);
 			$pi = 0;
 			while($pi < $n)
 			{
@@ -186,11 +187,11 @@ function decode_len($bytes, $offset, $field)
 			$value = $unpacked_values;
 		}
 		// The I64 primitives
-		elseif(in_array($fieldtype, ["fixed64", "sfixed64", "double"]))
+		elseif(\in_array($fieldtype, ["fixed64", "sfixed64", "double"]))
 		{
 			$packed_values = $value; 
 			$unpacked_values = [];
-			$n = strlen($packed_values);
+			$n = \strlen($packed_values);
 			$pi = 0;
 			while($pi < $n)
 			{
@@ -217,7 +218,7 @@ function decode_tag($bytes, $offset)
 	$fieldnum = $tag >> 3;
 	return [$wiretype, $fieldnum, $offset];
 }
-	
+
 function decode_value($bytes, $offset, $wiretype, $field)
 {
 	$value = null;
